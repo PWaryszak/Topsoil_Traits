@@ -57,7 +57,7 @@ ggsave(filename="DivDensityCorrelation_AllSeasons.jpeg", dpi=600)
 traitURL <- "https://sites.google.com/site/pawelwaryszak/forestdale-experiment/chapter-6/traits.all_19oct15.csv?attredirects=0&d=1"
 traits <- read.csv(url(traitURL)) # read in data for traits Ind <- c(as.character(traits[traits[,2]=="native",1]), "count") # index of native species and text 'count'
 names(traits)#list of recorded traits
-
+levels(traits$specCode)#253
 #Spring2012 natives only:
 NatSpr12<-FD.all[FD.all$season=="Spring2012",]
 str(NatSpr12)#673 obs. of  207 variables:
@@ -73,35 +73,77 @@ NatSpr12$Simps.Diversity<-diversity(NatSpr12[,12:199], index= "simpson")
 NatSpr12$Density<-rowSums(NatSpr12[,12:199])
 NatSpr12$Richness<-specnumber(NatSpr12[,12:199])
 
-#Computing mean + SD Richness per treatment:
+#Computing mean, n, SD, SE of Richness per treatment:
 ##Site-scale Topsoil Treatments:
+
+#RIP:======
 RipRichnessSpr12<-summarise(group_by(NatSpr12,rip), MeanRichness=mean(Richness),
-SDRichness=sd(Richness),n=length(Richness))%>% mutate(Treat = rip)
+SDRichness=sd(Richness),n=length(Richness), SE=SDRichness/sqrt(n))%>% mutate(Treat = rip)
 RipRichnessSpr12
 #######rip MeanRichness SDRichness NumberRichness
 #   ripped     16.11573   5.833628            337
 # unripped     27.57440   6.938996            336
+
+#subset by level & compute total n of species recorded per treatment level:
+#"ripped"
+RipSpr12<- NatSpr12[ NatSpr12$rip=="ripped", c(9,12:199)]#select rip and species columns
+RipColSums <- as.data.frame(apply(RipSpr12[,-1] > 0,2,sum)) # compute sum of each species column
+length(RipColSums[RipColSums[, 1]>0, ])#144 total species recorded 
+#"unripped"
+NoRipSpr12<- NatSpr12[ NatSpr12$rip=="unripped", c(9,12:199)]#select rip and species columns
+NoRipColSums <- as.data.frame(apply(NoRipSpr12[,-1] > 0,2,sum)) # compute sum of each species column
+length(NoRipColSums[NoRipColSums[, 1]>0, ])#160 total species recorded 
+
+RipRichnessSpr12$Total <- c(144, 160)
+RipRichnessSpr12
+#TRANSDEPTH:========
 TransdepthRichnessSpr12<-summarise(group_by(NatSpr12,Transdepth), MeanRichness=mean(Richness),
-                            SDRichness=sd(Richness),n=length(Richness))%>% mutate(Treat = Transdepth)
+                            SDRichness=sd(Richness),n=length(Richness),SE=SDRichness/sqrt(n)) %>% mutate(Treat = Transdepth)
 TransdepthRichnessSpr12
 #####Transdepth MeanRichness SDRichness
 #       deep     23.45401   8.839094
 #    shallow     20.21429   8.036962
 
+#subset by level & compute total n of species recorded per treatment level:
+#"deep"
+deepSpr12<- NatSpr12[ NatSpr12$Transdepth=="deep", c(8,12:199)]#select Transdepth and species columns
+deepColSums <- as.data.frame(apply(deepSpr12[,-1] > 0,2,sum)) # compute sum of each species column
+length(deepColSums[deepColSums[, 1]>0, ])#163 total species recorded 
+#"shallow"
+NodeepSpr12<- NatSpr12[ NatSpr12$Transdepth=="shallow", c(8,12:199)]#select Transdeepth and species columns
+NodeepColSums <- as.data.frame(apply(NodeepSpr12[,-1] > 0,2,sum)) # compute sum of each species column
+length(NodeepColSums[NodeepColSums[, 1]>0, ])#151 total species recorded 
+
+TransdepthRichnessSpr12$Total<- c(163, 151)
+TransdepthRichnessSpr12
+
+#FENCE:============
 fenceRichnessSpr12<-summarise(group_by(NatSpr12,fence), MeanRichness=mean(Richness),
-                            SDRichness=sd(Richness),n=length(Richness))%>% mutate(Treat = fence)
+                            SDRichness=sd(Richness),n=length(Richness),SE=SDRichness/sqrt(n))%>% mutate(Treat = fence)
 fenceRichnessSpr12
 ######fence MeanRichness SDRichness NumberRichness
 # fenced     22.06029   8.621346            481
 #   open     21.27604   8.529091            192
 
-plot2RichnessSpr12<-summarise(group_by(NatSpr12,plot2), MeanRichness=mean(Richness),
-                              SDRichness=sd(Richness),n=length(Richness)) %>% mutate(Treat = plot2)
-plot2RichnessSpr12
-##Plot-scale Topsoil Treatments:
-#CTRL refers to all site-scale treatments together,
-#as plot treatments were nested within them:
+#subset by level & compute total n of species recorded per treatment level:
+#"fenced"
+fenceSpr12<- NatSpr12[ NatSpr12$fence=="fenced", c(10,12:199)]#select fence and species columns
+fenceColSums <- as.data.frame(apply(fenceSpr12[,-1] > 0,2,sum)) # compute sum of each species column
+length(fenceColSums[fenceColSums[, 1] >0, ])#166 total species recorded (rows >0)
+#"open"
+NofenceSpr12<- NatSpr12[ NatSpr12$fence=="open", c(10,12:199)]#select fence and species columns
+NofenceColSums <- as.data.frame(apply(NofenceSpr12[,-1] > 0,2,sum)) # compute sum of each species column
+length(NofenceColSums[NofenceColSums[, 1]>0, ])#138 total species recorded 
 
+fenceRichnessSpr12$Total<-c(166, 138)
+
+#PLOT2================
+##Plot-scale Topsoil Treatments (column plot2):
+#CTRL refers to all site-scale treatments together,plot-scale treatments were nested within site-scale treatments:
+
+plot2RichnessSpr12<-summarise(group_by(NatSpr12,plot2), MeanRichness=mean(Richness),
+                              SDRichness=sd(Richness),n=length(Richness),SE=SDRichness/sqrt(n)) %>% mutate(Treat = plot2)
+plot2RichnessSpr12
 #plot2 MeanRichness SDRichness NumberRichness
 #   CTRL     21.47113   8.792343            433
 #   HERB     22.10417   9.563316             48
@@ -111,19 +153,58 @@ plot2RichnessSpr12
 #   SMOK     22.43750   7.031559             48
 #   SMPL     21.45833   8.052906             48
 
-#BIND THEM TOGETHER BY Treat:
-r<-RipRichnessSpr12[ , c("MeanRichness", "SDRichness","n","Treat")]
-t<-TransdepthRichnessSpr12[ , c("MeanRichness", "SDRichness","n","Treat")]
-f<-fenceRichnessSpr12[ , c("MeanRichness", "SDRichness","n","Treat")]
-p<-plot2RichnessSpr12[ , c("MeanRichness", "SDRichness","n","Treat")]
+#subset by level & compute total n of species recorded per treatment level:
+#OLD way is repetitive!
+plot2Spr12<- NatSpr12[ NatSpr12$plot2=="CTRL", c(11,12:199)]#select plot2 and species columns
+plot2ColSums <- as.data.frame(apply(plot2Spr12[,-1] > 0,2,sum)) # compute sum of each species column
+length(plot2ColSums[plot2ColSums[, 1] >0, ])#161 total species recorded (rows >0)
+#Let us for-loop do it for us:
+#For Loop is computing number of species mentions per each level of plot2 treatment
+
+Output <- NULL #we need to set an empty "shelf" for data to put in to.
+
+for ( i in unique(NatSpr12$plot2) ){
+  
+  data_sub <- subset(NatSpr12, plot2== i)#create a subset data for each plot2 level
+  
+  data_sub2<-subset(data_sub,select= acaccycl:xanthueg)#subset species matrix only
+  
+  SpeciesCount <- data.frame(apply(data_sub2 > 0,2,sum))#Compute n of columns that are >0
+  
+  Total<- length(SpeciesCount[SpeciesCount[, 1] > 0, ])#length corresponds to species total n
+  
+  Plot2name <- i #name the row according to plot2 treatment level
+  
+  saveoutput <- data.frame(Total, Treat = Plot2name) #Save the output in a data frame
+  
+  Output <- rbind(Output, saveoutput)#bind each for-iteration into an output
+}
+Output
+
+head(Output)
+
+plot2RichnessSpr12$Total<-Output$Total #Merge Output with our previous plot 2 data frame
+plot2RichnessSpr12
+
+#BIND THE All RICHNESS Values TOGETHER BY Treat===========
+r<-RipRichnessSpr12[ , c("MeanRichness", "SDRichness","n","Treat", "SE", "Total")]
+t<-TransdepthRichnessSpr12[ , c("MeanRichness", "SDRichness","n","Treat", "SE", "Total")]
+f<-fenceRichnessSpr12[ , c("MeanRichness", "SDRichness","n","Treat", "SE", "Total")]
+p<-plot2RichnessSpr12[ , c("MeanRichness", "SDRichness","n","Treat", "SE", "Total")]
 
 #SORT and see how richness changes with Treat:
 all.treatments<- rbind(r,t,f,p)
 all.treatments$Trt<-casefold(all.treatments$Treat, upper=TRUE)#capitalizing
 sort1 <- arrange(all.treatments,desc(MeanRichness))
 sort1
-#QUICK PLOT:
+#write.csv(sort1, file = "RichnessTotalNofSpPerTreatment.csv", row.names = FALSE)
+
+#QUICK Richness PLOT:============
 #dev.off() #if error re-occur
 n1 <- ggplot(sort1, aes(x = (reorder(Trt, - MeanRichness)), y = MeanRichness, fill=Treat))
 n2 <- n1 + geom_bar(stat="identity",colour="black") 
 n2 + scale_x_discrete(label=function(x) abbreviate(x, minlength=4))
+
+#Total Number of species per treatment======
+#Good Tutorial: http://www.flutterbys.com.au/stats/tut/tut13.2.html
+sort1

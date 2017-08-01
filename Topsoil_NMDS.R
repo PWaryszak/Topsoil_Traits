@@ -17,7 +17,7 @@ a$binary<-ifelse(a$count > 0, 1,0)#turning count int binary presence/absence dat
 names(a)# "specCode","count","su","season","comb2" ,"plot2", "binary"  
 str(a)#data.frame':	133837 obs. of  7 variables:
 
-#NMDS per Morgan's comment on thesis======
+#NMDS start-and-end season as per Morgan's comment on thesis======
 # = Comparing "start" (spr12) and "end" season (aut14):
 #We work on deep.unripped (a) only as it was most successful treatment in terms of native densities
 levels(a$season)
@@ -31,15 +31,14 @@ species<-a1.wide[,3:255]
 
 #Remove Singletons:
 occur.cols<-apply(species,2,sum)#sum species occurances in each column
-a1.good.matrix<-species[ , !occur.cols <= 1 ] #removing all 0or1-sum columns.
-dim(a1.good.matrix) #233 124/160, columns removed.
-rows1<-rowSums(a1.good.matrix)
-range(rows1)#0 48
+a1.good.matrix<-species[ , !occur.cols <= 1 ] #removing all 0 or 1-sum columns.
+dim(a1.good.matrix) #233 124, singleton columns removed.
 
 veg<-a1.good.matrix #this a good subset of the species only matrix
 env<-as.data.frame(a1.wide[,"season"])#it subsets main treatments for env fit matrix
 colnames(env1)[1] <- "season"
 veg.env<-cbind(veg,env)
+names(veg.env)
 
 #removing zero rows
 veg.env$RowSum<-rowSums(veg)
@@ -51,6 +50,9 @@ str(veg.env1)#209 obs. of  126 variables:
 
 #Computing MDS:
 MDS <- metaMDS(veg.env1[ , 1:124], distance = "bray")#computing distances
+# Stress:   
+MDS$stress * 100 # = 6.88% , Stress type 1, weak ties.
+
 plot(MDS$points[,1:2])
 env1<- as.data.frame(veg.env1[,125])#env data
 colnames(env1)[1]<-"Season"
@@ -93,23 +95,35 @@ x4
 #on Producing eclipse:
 #https://stackoverflow.com/questions/13794419/plotting-ordiellipse-function-from-vegan-package-onto-nmds-plot-created-in-ggplo
 
+#ANOSIM as per Morgan's request===============
 
-#autumns only: 
-###########
-veg4<-subset(veg, veg$RowSum > 4)#that is minimum 5 in row
-dim(veg4)#374 283
-range(veg4$RowSum)#5 27
-#Computing MDS:
-MDS4=metaMDS(veg4[1:282])#computing distances
-plot(MDS4$points[,1:2])
-cut.env4<-rownames(veg4)#producing extra factors that fit veg4 for color-coding the plot
-ab.env4<-ab.matrix[cut.env4,]#subsetting only the rows computed in FD
-dim(ab.env4)#374 287
-ab.env.matrix4<-ab.env4[,c(1:5)]
-names(ab.env.matrix4)#"count"  "su"     "season" "comb2"  "plot2" 
+veg<-a1.good.matrix #this a good subset of the species only matrix (see above how we got here)
+env<-as.data.frame(a1.wide[,"season"])#it subsets main treatments for env fit matrix
+colnames(env)[1] <- "season"
+veg.env<-cbind(veg,env)
+names(veg.env)
+#removing zero rows
+veg.env$RowSum<-rowSums(veg)
+range(veg.env$RowSum)#0 48
+str(veg.env)#233 obs. of  126 variables:
+
+veg.env1<-subset(veg.env, veg.env$RowSum != 0)#removing zero rows as metaMDS does not run on zero rows.
+str(veg.env1)#209 obs. of  126 variables:
+veg.ANOSIM <- veg.env1[, -c(125,126)]
+env.ANOSIM <- veg.env1[, c(125,126)] #column n 125 = season
+
+topsoil.dist <- vegdist(veg.ANOSIM, binary = TRUE)
+attach(env.ANOSIM)
+topsoil.ANOSIM <-  anosim(topsoil.dist, season)
+summary(topsoil.ANOSIM)
+#OUTPUT:
+Call:  anosim(dat = topsoil.dist, grouping = season), Dissimilarity: binary bray 
+#ANOSIM statistic R: 0.4565 
+#Significance: 0.001 
+#Number of permutations: 999
 
 
-#NMDS on both remnnant and topsoil restoration sites=======
+#Joining Remnant/Topsoil DATA=======
 #Remnant Banksia Woodland data:
 REMNspecies <- read.csv("REMNspecies.csv")
 names(REMNspecies)
@@ -131,26 +145,23 @@ ab.matrix[is.na(ab.matrix)] <- 0 #replaces NA=s with zero
 range(ab.matrix$count)#[1]   0 272
 dim(ab.matrix)#4844  287
 
-#######
 #VEGAN:
 veg<-ab.matrix[,c(6:287)] #this subsets the species only matrix
 env<-ab.matrix[,c("comb2","plot2","season")]#it subsets main treatments for env fit matrix
 #removing zero rows
 veg$RowSum<-rowSums(veg)
 range(veg$RowSum)#0 27
-str(veg)#4844 obs. of  282 variables:
+str(veg)#4844 obs. of  283 variables:
 veg1<-subset(veg, veg$RowSum != 0)#'data.frame':  4291 obs. of  283 variables: M
 #MDS runs slowely with veg1 with too many low rows. Worth looking at: 
-veg2<-subset(veg, veg$RowSum > 2)#
-veg3<-subset(veg, veg$RowSum > 3)#
-veg4<-subset(veg, veg$RowSum > 4)#
-#Computing MDS:
-############
-MDS=metaMDS(veg1[1:282])#computing distances
+#veg2<-subset(veg, veg$RowSum > 2)#
+
+#NMDS ALL seasons==========
+MDS <- metaMDS(veg1[1:282])#computing distances
 plot(MDS$points[,1:2])
-cut.env<-rownames(veg1)#producing extra factors that fit veg1 for color-coding the plot
-ab.env<-ab.matrix[cut.env,]#subsetting only the rows computed in FD
-dim(ab.env)
+cut.env<-rownames(veg1)#subsettng variables that fit veg1 for color-coding the plot
+ab.env<-ab.matrix[cut.env,]#subsetting only the rows computed in MDS
+dim(ab.env)#
 ab.env.matrix<-ab.env[,c(1:5)]
 names(ab.env.matrix)
 
@@ -171,42 +182,50 @@ levels(veg.nmds$stage)[levels(veg.nmds$stage)=="Autumn2014"] <- "Off.Aut2014"
 sp1<-ggplot(data = veg.nmds, aes(MDS1, MDS2)) + geom_point(aes(color = stage), size= 4)
 sp2<-sp1+theme_bw()+ggtitle("NMDS for all seasons")
 sp2
-#########
-#autumns only: 
-###########
-veg4<-subset(veg, veg$RowSum > 4)#that is minimum 5 in row
-dim(veg4)#374 283
-range(veg4$RowSum)#5 27
+
+
+
+#NMDS Autumns=============== 
+veg.aut<-ab.matrix[ab.matrix$season=="Autumn2013"|ab.matrix$season=="Autumn2014"|ab.matrix$season=="aut11",]
+dim(veg.aut)#1296  287
+veg.aut$RowSum <- rowSums(veg.aut[ ,c(6:287)])
+veg1.aut<-subset(veg.aut, veg.aut$RowSum !=0)#that is minimum 1 in a row
+dim(veg1.aut)#1011 288
+range(veg1.aut$RowSum)#1 to 16
+
 #Computing MDS:
-MDS4=metaMDS(veg4[1:282])#computing distances
-plot(MDS4$points[,1:2])
-cut.env4<-rownames(veg4)#producing extra factors that fit veg4 for color-coding the plot
-ab.env4<-ab.matrix[cut.env4,]#subsetting only the rows computed in FD
-dim(ab.env4)#374 287
-ab.env.matrix4<-ab.env4[,c(1:5)]
+veg1.aut.species<- veg1.aut[ , -c(1:5, 288)] #subset veg matrix only
+MDS1.aut <- metaMDS(veg1.aut.species)#computing distances in veg matrix only
+MDS1.aut$stress * 100 # =  0.4264156%
+
+cut.env1.aut<-rownames(veg1.aut)#producing extra factors that fit veg1 for color-coding the plot
+ab.env1.aut<-ab.matrix[cut.env1.aut,]#subsetting only the rows computed in FD
+dim(ab.env1.aut)#1011 287
+ab.env.matrix4<-ab.env1.aut[,c(1:5)]
 names(ab.env.matrix4)#"count"  "su"     "season" "comb2"  "plot2" 
 
-coordinates4<-as.data.frame(MDS4$points[,1:2])
-veg.nmds4<-cbind(veg4,coordinates4, season=ab.env4$season)
-names(veg.nmds4)
-veg.nmds4$Stage<-veg.nmds4$season
-#Seperating season in two:
-levels(veg.nmds4$Stage)[levels(veg.nmds4$Stage)=="aut11"] <- "Ref.Aut2011"
-levels(veg.nmds4$Stage)[levels(veg.nmds4$Stage)=="spr11"] <- "Ref.Spr2011"
-levels(veg.nmds4$Stage)[levels(veg.nmds4$Stage)=="Spring2012"] <- "Off.Spr2012"
-levels(veg.nmds4$Stage)[levels(veg.nmds4$Stage)=="Autumn2013"] <- "Off.Aut2013"
-levels(veg.nmds4$Stage)[levels(veg.nmds4$Stage)=="Spring2013"] <- "Off.Spr2013"
-levels(veg.nmds4$Stage)[levels(veg.nmds4$Stage)=="Autumn2014"] <- "Off.Aut2014"
+coordinates.veg1.aut<-as.data.frame(MDS1.aut$points[,1:2])
+nmds.veg1.aut<-cbind(coordinates.veg1.aut, season=ab.env1.aut$season)
+names(nmds.veg1.aut)#"MDS1"   "MDS2"   "season"
+nmds.veg1.aut$Stage<-nmds.veg1.aut$season
 
-veg.aut<-with(veg.nmds4, veg.nmds4[Stage == "Ref.Aut2011" | Stage == "Off.Aut2013" | Stage == "Off.Aut2014", ])
-dim(veg.aut)#50 287
-sp1<-ggplot(data = veg.aut, aes(MDS1, MDS2)) + geom_point(aes(color = Stage), size= 4)
-sp2<-sp1+theme_bw()+ggtitle("NMDS in Autumn")
-sp2
-#1 outliers removed:
-min(veg.aut$MDS1)
-v1<-veg.aut[-which.min(veg.aut$MDS1),]
-dim(v1)#49 287
+#Renaming seasons into:
+levels(nmds.veg1.aut$Stage)[levels(nmds.veg1.aut$Stage)=="aut11"] <- "Ref.Aut2011"
+levels(nmds.veg1.aut$Stage)[levels(nmds.veg1.aut$Stage)=="Autumn2013"] <- "Off.Aut2013"
+levels(nmds.veg1.aut$Stage)[levels(nmds.veg1.aut$Stage)=="Autumn2014"] <- "Off.Aut2014"
+table(nmds.veg1.aut$Stage)#empty factor levels shown.
+nmds.veg1.aut$Stage<-factor(nmds.veg1.aut$Stage, levels = c("Ref.Aut2011","Off.Aut2013","Off.Aut2014"))
+#write.csv(nmds.veg1.aut, file = "nmds.veg1.aut.csv")#it takes too much time to run MDS so its output is saved here
+
+#GGPLOT NMDS Autumns =============== 
+nmds.veg1.aut<-read.csv("nmds.veg1.aut.csv")
+nmds.plot1<-ggplot(data = nmds.veg1.aut, aes(MDS1, MDS2)) + geom_point(aes(color = Stage))
+nmds.plot2<-sp1+theme_bw()+ggtitle("NMDS in three Autumn seasons")
+nmds.plot2
+#1 outliers to be removed:
+min(nmds.veg1.aut$MDS1)#[1] -141.5723
+v1<-nmds.veg1.aut[-which.min(nmds.veg1.aut$MDS1),]
+dim(v1)#1010    5
 v1$Stage <- factor(v1$Stage, levels = c("Ref.Aut2011", "Off.Aut2013", "Off.Aut2014"))
 sp1<-ggplot(v1, aes(MDS1, MDS2)) + geom_point(aes(color = Stage, shape=Stage), size= 6)
 sp2<-sp1+theme_classic()
@@ -216,93 +235,134 @@ sp3 <- sp2 + theme(axis.text.y=element_text(size=18),
                   axis.text.x=element_text(size=18),
                   axis.title.y=element_blank(),
                   panel.grid.minor.x = element_blank(),
-                  panel.grid.minor.x = element_blank(),
                   legend.position = "bottom",
                   legend.text = element_text(size = 14),
-                  legend.title = element_text(size = 14),
+                  legend.title = element_text(size = 14,face="bold"),
                   strip.text.x=element_text(size=28),
                   plot.title = element_text(lineheight=1.2, face="bold",size=26))
 
 sp3
-#ggsave(filename="nmdsVeg4b.pdf", dpi=600, width=140, height=140, unit= "mm") 
-#ggsave(filename="nmdsVeg4b.jpeg", dpi=600, width=140, height=140, unit= "mm") 
+#ggsave(filename="nmdsveg1b.jpeg", dpi=600, width=140, height=140, unit= "mm") 
 #above is used in Trait Chapter as fig 3:
-################
+
+#ANOSIM Autumns=============
+levels(ab.matrix$season)#ignore remnant = 0 rows.
+aut<-ab.matrix[ab.matrix$season== "aut11"|ab.matrix$season== "Autumn2013" | ab.matrix$season== "Autumn2014",]
+species.aut<-aut[,6:287]
+
+env.aut<-as.data.frame(aut[,"season"])#it subsets main treatments for env fit matrix
+colnames(env.aut)[1] <- "season"
+veg.env.aut<-cbind(species.aut,env.aut)
+names(veg.env.aut)
+#removing zero rows
+veg.env.aut$RowSum<-rowSums(veg.env.aut[,c(1:182)])
+range(veg.env$RowSum)#0 48
+str(veg.env.aut)#1296 obs. of  284 variables:
+
+veg.env1.aut<-subset(veg.env.aut, veg.env.aut$RowSum != 0)#removing zero rows as metaMDS does not run on zero rows.
+str(veg.env1.aut)#805 obs. of  284 variables:
+veg.ANOSIM.aut <- veg.env1.aut[, -c(283,284)]
+env.ANOSIM.aut<- veg.env1.aut[, c(283,284)]) #
+env.ANOSIM.aut$season<-factor(env.ANOSIM.aut$season)
+
+topsoil.dist.aut <- vegdist(veg.ANOSIM.aut, binary = TRUE)
+attach(env.ANOSIM.aut)
+table(env.ANOSIM.aut$season)
+topsoil.ANOSIM.aut <-  anosim(topsoil.dist.aut, season)
+plot(topsoil.ANOSIM.aut)
+summary(topsoil.ANOSIM.aut)
+#OUTPUT:anosim(dat = topsoil.dist.aut, grouping = season)
+#ANOSIM statistic R: 0.04431 
+#Significance: 0.001 
+
+#NMDS Springs================
+veg.spr<-ab.matrix[ab.matrix$season=="Spring2012"|ab.matrix$season=="Spring2013"|ab.matrix$season=="spr11",]
+dim(veg.spr)#3548  287 - more than aut which is expected as more seedlings stay alive in spring
+veg.spr$RowSum <- rowSums(veg.spr[ ,c(6:287)])
+veg1.spr<-subset(veg.spr, veg.spr$RowSum !=0)#that is minimum 1 in a row. Vegdist does not take 0 rows
+dim(veg1.spr)#3280  288
+range(veg1.spr$RowSum)#1 to 27
+
+#Computing MDS:
+veg1.spr.species<- veg1.spr[ , -c(1:5, 288)] #subset veg matrix only
+MDS1.spr <- metaMDS(veg1.spr.species)#computing distances in veg matrix only
+MDS1.spr$stress * 100 # =  %
+
+cut.env1.spr<-rownames(veg1.spr)#producing extra factors that fit veg1 for color-coding the plot
+ab.env1.spr<-ab.matrix[cut.env1.spr,]#subsetting only the rows computed in FD
+dim(ab.env1.spr)#1011 287
+ab.env.matrix4<-ab.env1.spr[,c(1:5)]
+names(ab.env.matrix4)#"count"  "su"     "season" "comb2"  "plot2" 
+
+coordinates.veg1.spr<-as.data.frame(MDS1.spr$points[,1:2])
+nmds.veg1.spr<-cbind(coordinates.veg1.spr, season=ab.env1.spr$season)
+names(nmds.veg1.spr)#"MDS1"   "MDS2"   "season"
+nmds.veg1.spr$Stage<-factor(nmds.veg1.spr$season)
+table(nmds.veg1.spr$Stage)
+#Spring2012 Spring2013      spr11 
+#1444       1710        126 
+#Renaming seasons into:
+levels(nmds.veg1.spr$Stage)[levels(nmds.veg1.spr$Stage)=="spr11"] <- "Ref.spr2011"
+levels(nmds.veg1.spr$Stage)[levels(nmds.veg1.spr$Stage)=="Spring2012"] <- "Off.spr2012"
+levels(nmds.veg1.spr$Stage)[levels(nmds.veg1.spr$Stage)=="Spring2013"] <- "Off.spr2013"
+table(nmds.veg1.spr$Stage)#empty factor levels shown.
+nmds.veg1.spr$Stage<-factor(nmds.veg1.spr$Stage, levels = c("Ref.spr2011","Off.spr2012","Off.spr2013"))
+#write.csv(nmds.veg1.spr, file = "nmds.veg1.spr.csv")#it takes too much time to run MDS so its output is saved here
+
+#GGPLOT NMDS Springs==========
+spspr1<-ggplot(data = nmds.veg1.spr, aes(MDS1, MDS2)) + geom_point(aes(color = Stage), size= 4)
+spspr2<-spspr1+theme_bw()+ggtitle("NMDS in three Spring seasons")
+spspr2#vivid outliers prsent to be removed:
 
 
-#Statistical test of NMDS ordination :
-#mrpp(releves,don1$SelectionETR,distance="bray")
-#########
-#springs only: 
-#############
-veg.spr<-with(veg.nmds4, veg.nmds4[Stage == "Ref.Spr2011" | Stage == "Off.Spr2012" | Stage == "Off.Spr2013", ])
-dim(veg.spr)#462 287
-spspr1<-ggplot(data = veg.spr, aes(MDS1, MDS2)) + geom_point(aes(color = Stage), size= 4)
-spspr2<-spspr1+theme_bw()+ggtitle("NMDS in Autumn")
-spspr2
-veg.spr$Stage <- factor(veg.spr$Stage, levels = c("Ref.Spr2011", "Off.Spr2012", "Off.Spr2013"))
-spspr1<-ggplot(veg.spr, aes(MDS1, MDS2)) + geom_point(aes(color = Stage, shape=Stage), size= 4)
-spspr2<-spspr1+theme_bw()
+#nmds.veg1.spr <- read.csv("nmds.veg1.spr.csv")# Ouput of ~6h of MDS1.spr <- metaMDS(veg1.spr.species)#computing distances in veg matrix only
+
+veg.spr.No_Outlier<-nmds.veg1.spr[- which.min(nmds.veg1.spr$MDS1), ]
+
+spspr1<-ggplot(veg.spr.No_Outlier, aes(MDS1, MDS2)) + geom_point(aes(color = Stage, shape=Stage), size= 4)
+spspr2<-spspr1+theme_bw()     #+ggtitle("NMDS in three Spring seasons")
 spspr3 <- spspr2 + theme(  axis.text.y=element_text(size=18),
                      axis.title.x=element_blank(),
                      axis.text.x=element_text(size=18),
                      axis.title.y=element_blank(),
                      panel.grid.minor.x = element_blank(),
-                     panel.grid.minor.x = element_blank(),
                      legend.position = "bottom",
                      legend.text = element_text(size = 14),
-                     legend.title = element_text(size = 14),
+                     legend.title = element_text(size = 14,face="bold"),
                      strip.text.x=element_text(size=28),
                      plot.title = element_text(lineheight=1.2, face="bold",size=26))
 
 spspr3
-ggsave(filename="nmdsVeg4Spring.pdf", dpi=600, width=140, height=140, unit= "mm") 
-ggsave(filename="nmdsVeg4SpringB.jpeg", dpi=600, width=140, height=140, unit= "mm") 
+#ggsave(filename="nmdsVeg4SpringB.jpeg", dpi=600, width=140, height=140, unit= "mm") 
 
-#############
-#All more than or equal 4 (n>3):
-veg3<-subset(veg, veg$RowSum > 3)#
-dim(veg3)#544 283
-MDS3=metaMDS(veg3[1:282])#computing distances
-plot(MDS3$points[,1:2])
-cut.env3<-rownames(veg3)#producing extra factors that fit veg1 for color-coding the plot
-ab.env3<-ab.matrix[cut.env3,]#subsetting only the rows computed in FD
-dim(ab.env3)
-ab.env.matrix3<-ab.env3[,c(1:5)]
-names(ab.env.matrix3)
+#ANOSIM Springs=========
+veg.spr<-ab.matrix[ab.matrix$season=="Spring2012"|ab.matrix$season=="Spring2013"|ab.matrix$season=="spr11",]
+dim(veg.spr)#3548  287
+species.spr<-veg.spr[,6:287]
 
-coordinates3<-as.data.frame(MDS3$points[,1:2])
-veg.nmds3<-cbind(veg3,coordinates3, season=ab.env3$season)
-names(veg.nmds3)
-veg.nmds3$stage<-veg.nmds3$season
-#Seperating season in two:
-levels(veg.nmds3$stage)[levels(veg.nmds3$stage)=="aut11"] <- "Ref.Aut2011"
-levels(veg.nmds3$stage)[levels(veg.nmds3$stage)=="spr11"] <- "Ref.Spr2011"
-levels(veg.nmds3$stage)[levels(veg.nmds3$stage)=="Spring2012"] <- "Off.Spr2012"
-levels(veg.nmds3$stage)[levels(veg.nmds3$stage)=="Autumn2013"] <- "Off.Aut2013"
-levels(veg.nmds3$stage)[levels(veg.nmds3$stage)=="Spring2013"] <- "Off.Spr2013"
-levels(veg.nmds3$stage)[levels(veg.nmds3$stage)=="Autumn2014"] <- "Off.Aut2014"
+env.spr<-as.data.frame(veg.spr[,"season"])#it subsets main treatments for env fit matrix
+colnames(env.spr)[1] <- "season"
+veg.env.spr<-cbind(species.spr,env.spr)
 
-#Vegan MDS in GGPLOT:
-#all
-veg.nmds3$stage <- factor(veg.nmds3$stage, levels = c("Ref.Spr2011","Ref.Aut2011","Off.Spr2012", "Off.Aut2013","Off.Spr2013", "Off.Aut2014"))
+#removing zero rows from veg.env.spr
+veg.env.spr$RowSum<-rowSums(veg.env.spr[,c(1:182)])
+range(veg.env$RowSum)#0 48
+str(veg.env.spr)#3548 obs. of  284 variables::
 
-sp1.veg3<-ggplot(data = veg.nmds3, aes(MDS1, MDS2)) + geom_point(aes(color = stage,shape=stage), size= 4)
-sp2.veg3<-sp1.veg3+theme_bw()+ggtitle("NMDS for all seasons\n Sp Matrix RowSums > 3")
-sp2.veg3
-sp3.veg3 <- sp2.veg3 + theme(  axis.text.y=element_text(size=22),
-                     axis.title.x=element_blank(),
-                     axis.text.x=element_text(size=20),
-                     axis.title.y=element_blank(),
-                     panel.grid.minor.x = element_blank(),
-                     panel.grid.minor.x = element_blank(),
-                     legend.position = "bottom",
-                     legend.text = element_text(size = 16),
-                     legend.title = element_text(size = 16),
-                     strip.text.x=element_text(size=28),
-                     plot.title = element_text(lineheight=1.2, face="bold",size=26))
+veg.env1.spr<-subset(veg.env.spr, veg.env.spr$RowSum != 0)#removing zero rows as metaMDS does not run on zero rows.
+str(veg.env1.spr)#'data.frame':	2690 obs. of  284 variables:
+veg.ANOSIM.spr <- veg.env1.spr[, -c(283,284)]
+env.ANOSIM.spr<- veg.env1.spr[, c(283,284)] #
+env.ANOSIM.spr$season<-factor(env.ANOSIM.spr$season)
 
-sp3.veg3
+topsoil.dist.spr <- vegdist(veg.ANOSIM.spr, binary = TRUE)#dissimilariy distances
+attach(env.ANOSIM.spr)#we show R where to look for season
+table(env.ANOSIM.spr$season)#quick look at the n of obs per season
+#Spring2012 Spring2013      spr11 
+#1239       1348            103 
 
-#Statistical test of NMDS ordination :
-#mrpp(releves,don1$SelectionETR,distance="bray")
+topsoil.ANOSIM.spr <-  anosim(topsoil.dist.spr, season)
+summary(topsoil.ANOSIM.spr)
+#OUTPUT:anosim(dat = topsoil.dist.spr, grouping = season)
+#ANOSIM statistic R: 0.01014 
+#Significance: 0.001 

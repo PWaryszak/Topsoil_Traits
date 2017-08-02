@@ -58,17 +58,20 @@ SumStats2<-summarise(group_by_(h2,"Treatment"), mean=mean(hgt2), sd=sd(hgt2), N 
 SumStats2 #computed means +-SE
 SumStats2 <- SumStats2[ order(SumStats2$mean),] #order the data by mean
 SumStats2
+SumStats3<-SumStats2[SumStats2$Treatment != "shade.semi",]#removing  shade.semi = vandalized shade treatment
+levels(droplevels(SumStats3$Treatment))#hange levels as per order to look ascending on figure:
+SumStats3$Treatment<- factor(SumStats3$Treatment, levels=SumStats3$Treatment[order(SumStats3$mean)], ordered=TRUE)
+
 #ggplot:
 pd <- position_dodge(0.3) #
-g1<-ggplot(SumStats2, aes(x=Treatment, y=mean , width=.75))
-g2<-g1 + geom_bar(position=pd, stat="identity", color = "black", fill = "white")+ geom_errorbar(aes(ymin=mean-se, ymax=mean+se,color="black"),width=.4, position=pd, color ="black")
-g2 
-g3<- g2 + ylab("Plant Height (m)") + theme_classic()
-g3
-g4<-g3 + theme(axis.text.x=element_text(size=10, angle=320),
+g1<-ggplot(SumStats3, aes(x=Treatment, y=mean))
+g2<-g1 + geom_bar(position=pd, stat="identity")
+g3<- g2 + ylab("Plant Height (m)")+ geom_errorbar(aes(ymin=mean-se, ymax=mean+se),width=.4, position=pd)
+
+g4<-g3 + theme(axis.text.x=element_text(size=12),
                axis.text.y=element_text(size=18),
                axis.title.y=element_text(size=20),
                axis.title.x=element_text(size=20),
                legend.position = "none")
 
-g4
+g4# + theme_classic()
